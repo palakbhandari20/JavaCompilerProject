@@ -16,45 +16,78 @@ public class Parser {
         this.current = 0;
     }
 
-    public Program parseProgram() {
-        int line = peek().getLine();
-        int column = peek().getColumn();
-        Program program = new Program(line, column);
+public Program parseProgram() {
+    int line = peek().getLine();
+    int column = peek().getColumn();
+    Program program = new Program(line, column);
 
-        while (!isAtEnd()) {
-            program.addFunction(parseFunction());
-        }
+    // Parse class declaration
+    consume(TokenType.PUBLIC);
+    consume(TokenType.CLASS);
+    String className = consume(TokenType.IDENTIFIER).getLexeme();
+    consume(TokenType.LEFT_BRACE);
 
-        return program;
+    // Parse class members (in this case, just the main method)
+    while (!check(TokenType.RIGHT_BRACE) && !isAtEnd()) {
+        program.addFunction(parseFunction());
     }
 
-    private FunctionDeclaration parseFunction() {
-        int line = peek().getLine();
-        int column = peek().getColumn();
+    consume(TokenType.RIGHT_BRACE);
+    return program;
+}
 
-        Type returnType = parseType();
-        String name = consume(TokenType.IDENTIFIER).getLexeme();
-        consume(TokenType.LEFT_PAREN);
+private FunctionDeclaration parseFunction() {
+    int line = peek().getLine();
+    int column = peek().getColumn();
 
-        List<Parameter> parameters = new ArrayList<>();
-        if (!check(TokenType.RIGHT_PAREN)) {
-            do {
-                Type paramType = parseType();
-                String paramName = consume(TokenType.IDENTIFIER).getLexeme();
-                parameters.add(new Parameter(paramType, paramName, line, column));
-            } while (match(TokenType.COMMA));
-        }
+    // Parse modifiers (public, static)
+    boolean isPublic = match(TokenType.PUBLIC);
+    boolean isStatic = match(TokenType.STATIC);
 
-        consume(TokenType.RIGHT_PAREN);
-        Block body = parseBlock();
+    // Parse return type
+    Type returnType = parseType();
+    
+    // Parse function name
+    String name = consume(TokenType.IDENTIFIER).getLexeme();
+    consume(TokenType.LEFT_PAREN);
 
-        return new FunctionDeclaration(returnType, name, parameters, body, line, column);
+    // Parse parameters
+    List<Parameter> parameters = new ArrayList<>();
+    if (!check(TokenType.RIGHT_PAREN)) {
+        do {
+            Type paramType = parseType();
+            String paramName = consume(TokenType.IDENTIFIER).getLexeme();
+            
+            // Handle array types
+            if (match(TokenType.LEFT_BRACKET)) {
+                consume(TokenType.RIGHT_BRACKET);
+                paramType = new Type(paramType.getName() + "[]", paramType.getLine(), paramType.getColumn());
+            }
+            
+            parameters.add(new Parameter(paramType, paramName, line, column));
+        } while (match(TokenType.COMMA));
     }
+    consume(TokenType.RIGHT_PAREN);
 
-    private Type parseType() {
-        Token token = consume(TokenType.IDENTIFIER);
+    // Parse function body
+    Block body = parseBlock();
+
+    // Create function with modifiers
+    FunctionDeclaration func = new FunctionDeclaration(returnType, name, parameters, body, line, column);
+    func.setPublic(isPublic);
+    func.setStatic(isStatic);
+    return func;
+}
+private Type parseType() {
+    Token token = peek();
+    if (match(TokenType.INT) || match(TokenType.FLOAT) || 
+        match(TokenType.STRING) || match(TokenType.BOOLEAN) || 
+        match(TokenType.VOID)) {
         return new Type(token.getLexeme(), token.getLine(), token.getColumn());
     }
+    throw new RuntimeException("Expected type but got " + token.getType());
+}
+
 
     private Block parseBlock() {
         int line = peek().getLine();

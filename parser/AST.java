@@ -112,6 +112,26 @@ public class AST {
         public Block getBody() {
             return body;
         }
+        // Add to FunctionDeclaration class
+private boolean isPublic;
+private boolean isStatic;
+
+// Add these methods
+public void setPublic(boolean isPublic) {
+    this.isPublic = isPublic;
+}
+
+public void setStatic(boolean isStatic) {
+    this.isStatic = isStatic;
+}
+
+public boolean isPublic() {
+    return isPublic;
+}
+
+public boolean isStatic() {
+    return isStatic;
+}
     }
 
     // Function parameter

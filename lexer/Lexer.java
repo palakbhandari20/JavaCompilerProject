@@ -15,16 +15,20 @@ public class Lexer {
     // Keywords mapping
     private static final Map<String, TokenType> KEYWORDS;
 
-    static {
-        KEYWORDS = new HashMap<>();
-        KEYWORDS.put("int", TokenType.INT);
-        KEYWORDS.put("float", TokenType.FLOAT);
-        KEYWORDS.put("if", TokenType.IF);
-        KEYWORDS.put("else", TokenType.ELSE);
-        KEYWORDS.put("while", TokenType.WHILE);
-        KEYWORDS.put("return", TokenType.RETURN);
-        KEYWORDS.put("void", TokenType.VOID);
-    }
+static {
+    KEYWORDS = new HashMap<>();
+    KEYWORDS.put("int", TokenType.INT);
+    KEYWORDS.put("float", TokenType.FLOAT);
+    KEYWORDS.put("if", TokenType.IF);
+    KEYWORDS.put("else", TokenType.ELSE);
+    KEYWORDS.put("while", TokenType.WHILE);
+    KEYWORDS.put("return", TokenType.RETURN);
+    KEYWORDS.put("void", TokenType.VOID);
+    KEYWORDS.put("public", TokenType.PUBLIC);
+    KEYWORDS.put("static", TokenType.STATIC);
+    KEYWORDS.put("class", TokenType.CLASS);
+    KEYWORDS.put("String", TokenType.STRING);
+}
 
     public Lexer(String source) {
         this.source = source;
@@ -121,20 +125,21 @@ public class Lexer {
         }
     }
 
-    private Token identifier() {
-        StringBuilder builder = new StringBuilder();
-        int startColumn = column;
+private Token identifier() {
+    StringBuilder builder = new StringBuilder();
+    int startColumn = column;
 
-        while (currentChar != '\0' && (Character.isLetterOrDigit(currentChar) || currentChar == '_')) {
-            builder.append(currentChar);
-            advance();
-        }
-
-        String lexeme = builder.toString();
-        TokenType type = KEYWORDS.getOrDefault(lexeme, TokenType.IDENTIFIER);
-
-        return new Token(type, lexeme, line, startColumn);
+    while (currentChar != '\0' && 
+          (Character.isLetterOrDigit(currentChar) || currentChar == '_')) {
+        builder.append(currentChar);
+        advance();
     }
+
+    String lexeme = builder.toString();
+    TokenType type = KEYWORDS.getOrDefault(lexeme, TokenType.IDENTIFIER);
+
+    return new Token(type, lexeme, line, startColumn);
+}
 
     private Token stringLiteral() {
         StringBuilder builder = new StringBuilder();
@@ -205,6 +210,12 @@ public class Lexer {
 
             // Operators and delimiters
             switch (currentChar) {
+                case '[':
+    advance();
+    return new Token(TokenType.LEFT_BRACKET, "[", line, startColumn);
+case ']':
+    advance();
+    return new Token(TokenType.RIGHT_BRACKET, "]", line, startColumn);
                 case '+':
                     advance();
                     return new Token(TokenType.PLUS, "+", line, startColumn);
@@ -267,9 +278,12 @@ public class Lexer {
                 case '}':
                     advance();
                     return new Token(TokenType.RIGHT_BRACE, "}", line, startColumn);
-                default:
-                    throw new RuntimeException("Unexpected character: '" + currentChar + 
-                            "' at line " + line + ", column " + column);
+default:
+    // Handle unexpected characters more gracefully
+    char unexpected = currentChar;
+    advance();
+    throw new RuntimeException("Unexpected character: '" + unexpected + 
+           "' at line " + line + ", column " + (startColumn));
             }
         }
 

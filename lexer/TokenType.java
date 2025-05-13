@@ -1,11 +1,17 @@
 package lexer;
 
+import javax.print.DocFlavor.STRING;
+
 public enum TokenType {
     // Literals
     INTEGER_LITERAL,
     FLOAT_LITERAL,
     STRING_LITERAL,
     IDENTIFIER,
+    LEFT_BRACKET,   // [
+    RIGHT_BRACKET,  // ]
+    PUBLIC,
+    STATIC,
 
     // Keywords
     INT,
@@ -15,6 +21,9 @@ public enum TokenType {
     WHILE,
     RETURN,
     VOID,
+    STRING,
+    BOOLEAN,
+    CLASS,
 
     // Operators
     PLUS,
