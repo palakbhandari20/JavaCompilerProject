@@ -4,6 +4,15 @@
 section .text
 global _start
 
+main:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 48
+.end_main:
+    mov rsp, rbp
+    pop rbp
+    ret
+
 _start:
     ; Call main function
     call main

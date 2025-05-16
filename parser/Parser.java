@@ -36,6 +36,8 @@ public Program parseProgram() {
     return program;
 }
 
+// Fix for Parser.java - Only the parseFunction() method needs modification
+
 private FunctionDeclaration parseFunction() {
     int line = peek().getLine();
     int column = peek().getColumn();
@@ -56,14 +58,14 @@ private FunctionDeclaration parseFunction() {
     if (!check(TokenType.RIGHT_PAREN)) {
         do {
             Type paramType = parseType();
-            String paramName = consume(TokenType.IDENTIFIER).getLexeme();
             
-            // Handle array types
+            // Handle array types - Check for array brackets BEFORE parameter name
             if (match(TokenType.LEFT_BRACKET)) {
                 consume(TokenType.RIGHT_BRACKET);
                 paramType = new Type(paramType.getName() + "[]", paramType.getLine(), paramType.getColumn());
             }
             
+            String paramName = consume(TokenType.IDENTIFIER).getLexeme();
             parameters.add(new Parameter(paramType, paramName, line, column));
         } while (match(TokenType.COMMA));
     }
@@ -104,25 +106,32 @@ private Type parseType() {
     }
 
     private Statement parseStatement() {
-        switch (peek().getType()) {
-            case IF:
-                return parseIfStatement();
-            case WHILE:
-                return parseWhileStatement();
-            case RETURN:
-                return parseReturnStatement();
-            case IDENTIFIER:
-                if (peekNext().getType() == TokenType.IDENTIFIER) {
-                    return parseVarDeclarationStatement();
-                } else {
-                    return parseExpressionStatement();
-                }
-            case LEFT_BRACE:
-                return parseBlock();
-            default:
+    switch (peek().getType()) {
+        case IF:
+            return parseIfStatement();
+        case WHILE:
+            return parseWhileStatement();
+        case RETURN:
+            return parseReturnStatement();
+        case INT:
+        case FLOAT:
+        case STRING:  
+        case BOOLEAN:
+            // Handle variable declarations that start with a type
+            return parseVarDeclarationStatement();
+        case IDENTIFIER:
+            // This branch might need more logic depending on your grammar
+            if (peekNext().getType() == TokenType.IDENTIFIER) {
+                return parseVarDeclarationStatement();
+            } else {
                 return parseExpressionStatement();
-        }
+            }
+        case LEFT_BRACE:
+            return parseBlock();
+        default:
+            return parseExpressionStatement();
     }
+}
 
     private IfStatement parseIfStatement() {
         int line = consume(TokenType.IF).getLine();
@@ -158,20 +167,20 @@ private Type parseType() {
         return new ReturnStatement(value, token.getLine(), token.getColumn());
     }
 
-    private VarDeclarationStatement parseVarDeclarationStatement() {
-        Type type = parseType();
-        Token nameToken = consume(TokenType.IDENTIFIER);
-        Expression initializer = null;
+private VarDeclarationStatement parseVarDeclarationStatement() {
+    Type type = parseType();
+    Token nameToken = consume(TokenType.IDENTIFIER);
+    Expression initializer = null;
 
-        if (match(TokenType.ASSIGN)) {
-            initializer = parseExpression();
-        }
-
-        consume(TokenType.SEMICOLON);
-        VarDeclaration declaration = new VarDeclaration(type, nameToken.getLexeme(), initializer,
-                nameToken.getLine(), nameToken.getColumn());
-        return new VarDeclarationStatement(declaration, nameToken.getLine(), nameToken.getColumn());
+    if (match(TokenType.ASSIGN)) {
+        initializer = parseExpression();
     }
+
+    consume(TokenType.SEMICOLON);
+    VarDeclaration declaration = new VarDeclaration(type, nameToken.getLexeme(), initializer,
+            nameToken.getLine(), nameToken.getColumn());
+    return new VarDeclarationStatement(declaration, nameToken.getLine(), nameToken.getColumn());
+}
 
     private ExpressionStatement parseExpressionStatement() {
         Expression expr = parseExpression();
