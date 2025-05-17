@@ -7,7 +7,7 @@ global _start
 main:
     push rbp
     mov rbp, rsp
-    sub rsp, 48
+    sub rsp, 64
 .end_main:
     mov rsp, rbp
     pop rbp
