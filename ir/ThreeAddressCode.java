@@ -92,7 +92,15 @@ public class ThreeAddressCode {
             return label;
         }
         
-        public abstract String toString();
+        // Modified toString: prepend label if set
+        @Override
+        public String toString() {
+            String labelStr = (label != null && !label.isEmpty()) ? (label + ": ") : "";
+            return labelStr + instructionToString();
+        }
+        
+        // Subclasses override this to provide instruction-specific string
+        protected abstract String instructionToString();
     }
     
     public static class BinaryOperation extends Instruction {
@@ -125,7 +133,7 @@ public class ThreeAddressCode {
         }
         
         @Override
-        public String toString() {
+        protected String instructionToString() {
             return result + " = " + left + " " + operator + " " + right;
         }
     }
@@ -154,7 +162,7 @@ public class ThreeAddressCode {
         }
         
         @Override
-        public String toString() {
+        protected String instructionToString() {
             return result + " = " + operator + " " + operand;
         }
     }
@@ -177,7 +185,7 @@ public class ThreeAddressCode {
         }
         
         @Override
-        public String toString() {
+        protected String instructionToString() {
             return destination + " = " + source;
         }
     }
@@ -206,7 +214,7 @@ public class ThreeAddressCode {
         }
         
         @Override
-        public String toString() {
+        protected String instructionToString() {
             StringBuilder sb = new StringBuilder();
             if (result != null) {
                 sb.append(result).append(" = ");
@@ -235,7 +243,7 @@ public class ThreeAddressCode {
         }
         
         @Override
-        public String toString() {
+        protected String instructionToString() {
             return "goto " + target;
         }
     }
@@ -264,7 +272,7 @@ public class ThreeAddressCode {
         }
         
         @Override
-        public String toString() {
+        protected String instructionToString() {
             return "if " + condition + " goto " + trueTarget + " else goto " + falseTarget;
         }
     }
@@ -281,7 +289,7 @@ public class ThreeAddressCode {
         }
         
         @Override
-        public String toString() {
+        protected String instructionToString() {
             return value != null ? "return " + value : "return";
         }
     }

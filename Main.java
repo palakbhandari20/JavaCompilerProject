@@ -57,6 +57,13 @@ System.out.println("Total tokens: " + tokens.size());
             System.out.println("Phase 5: Code Optimization");
             Optimizer optimizer = new Optimizer();
             ThreeAddressCode optimizedIR = optimizer.optimize(ir);
+            System.out.println("Optimized IR:");
+            for (ThreeAddressCode.Function func : optimizedIR.getFunctions()) {
+                System.out.println("Function: " + func.getName());
+                for (var inst : func.getInstructions()) {
+                    System.out.println(inst);
+                }
+            }
             
             // Phase 6: Code Generation
             System.out.println("Phase 6: Code Generation");
