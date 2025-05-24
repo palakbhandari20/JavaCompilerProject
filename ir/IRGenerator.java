@@ -14,10 +14,12 @@ public class IRGenerator {
     private Map<String, String> stringLiterals;
     private int labelCounter;
     private int tempVarCounter; // For tracking temporary variables
+    private Map<String, String> symbolTable; // Track variable types across functions
     
     public IRGenerator() {
         this.ir = new ThreeAddressCode();
         this.stringLiterals = new HashMap<>();
+        this.symbolTable = new HashMap<>();
         this.labelCounter = 0;
         this.tempVarCounter = 0;
         System.out.println("=== IR Generation Started ===");
@@ -25,6 +27,14 @@ public class IRGenerator {
     
     public ThreeAddressCode generate(Program program) {
         System.out.println("\n[IR-GEN] Processing program with " + program.getFunctions().size() + " functions");
+        
+        // First pass: collect function signatures for proper type resolution
+        for (FunctionDeclaration function : program.getFunctions()) {
+            String funcName = function.getName();
+            String returnType = function.getReturnType().getName();
+            symbolTable.put("func_" + funcName, returnType);
+            System.out.println("[SYMBOL] Registered function: " + funcName + " -> " + returnType);
+        }
         
         // Process each function
         for (FunctionDeclaration function : program.getFunctions()) {
@@ -35,6 +45,7 @@ public class IRGenerator {
         System.out.println("\n[IR-GEN] IR generation completed");
         System.out.println("[IR-GEN] Generated " + ir.getFunctions().size() + " functions");
         System.out.println("[IR-GEN] Generated " + stringLiterals.size() + " string literals");
+        System.out.println("[IR-GEN] Generated " + tempVarCounter + " temporary variables");
         System.out.println("=== IR Generation Completed Successfully ===");
         
         return ir;
@@ -54,6 +65,8 @@ public class IRGenerator {
             String paramName = param.getName();
             String paramType = param.getType().getName();
             currentFunction.addParameter(paramName, paramType);
+            // Also add to local symbol table for type tracking
+            symbolTable.put(name + "_" + paramName, paramType);
             System.out.println("    [PARAM] Added parameter '" + paramName + "' of type '" + paramType + "'");
         }
         
@@ -107,15 +120,29 @@ public class IRGenerator {
         
         System.out.println("        [VAR-DECL] Declaring variable '" + name + "' of type '" + type + "'");
         
-        // Add variable to function
+        // Add variable to function and symbol table
         currentFunction.addVariable(name, type);
+        symbolTable.put(currentFunction.getName() + "_" + name, type);
         
         // Generate initialization if present
         if (declaration.getInitialValue() != null) {
             System.out.println("        [VAR-INIT] Generating initializer for variable '" + name + "'");
             String valueTemp = generateExpression(declaration.getInitialValue());
-            currentFunction.addInstruction(new Copy(name, valueTemp));
-            System.out.println("        [INSTR] Added COPY: " + name + " = " + valueTemp);
+            
+            // Ensure proper type conversion if needed
+            if (!getType(valueTemp).equals(type) && !valueTemp.equals("void")) {
+                String convertedTemp = generateTypeConversion(valueTemp, getType(valueTemp), type);
+                currentFunction.addInstruction(new Copy(name, convertedTemp));
+                System.out.println("        [INSTR] Added COPY with conversion: " + name + " = " + convertedTemp);
+            } else {
+                currentFunction.addInstruction(new Copy(name, valueTemp));
+                System.out.println("        [INSTR] Added COPY: " + name + " = " + valueTemp);
+            }
+        } else {
+            // Initialize with default value
+            String defaultValue = getDefaultValue(type);
+            currentFunction.addInstruction(new Copy(name, defaultValue));
+            System.out.println("        [INSTR] Added default initialization: " + name + " = " + defaultValue);
         }
     }
     
@@ -223,8 +250,19 @@ public class IRGenerator {
         if (statement.getValue() != null) {
             System.out.println("        [RETURN] Return has value expression");
             String valueTemp = generateExpression(statement.getValue());
-            currentFunction.addInstruction(new Return(valueTemp));
-            System.out.println("        [INSTR] Added RETURN with value: " + valueTemp);
+            
+            // Ensure return value matches function return type
+            String expectedType = currentFunction.getReturnType();
+            String actualType = getType(valueTemp);
+            
+            if (!actualType.equals(expectedType) && !valueTemp.equals("void")) {
+                String convertedTemp = generateTypeConversion(valueTemp, actualType, expectedType);
+                currentFunction.addInstruction(new Return(convertedTemp));
+                System.out.println("        [INSTR] Added RETURN with converted value: " + convertedTemp);
+            } else {
+                currentFunction.addInstruction(new Return(valueTemp));
+                System.out.println("        [INSTR] Added RETURN with value: " + valueTemp);
+            }
         } else {
             currentFunction.addInstruction(new Return(null));
             System.out.println("        [INSTR] Added RETURN with no value (void)");
@@ -240,7 +278,7 @@ public class IRGenerator {
             return generateAssignment((Assignment) expression);
         } else if (expression instanceof Variable) {
             String varName = ((Variable) expression).getName();
-            System.out.println("          [VAR] Variable reference: " + varName);
+            System.out.println("          [VAR] Variable reference: " + varName + " (type: " + getType(varName) + ")");
             return varName;
         } else if (expression instanceof Literal) {
             return generateLiteral((Literal) expression);
@@ -262,28 +300,35 @@ public class IRGenerator {
         System.out.println("          [BINARY] Generating right operand");
         String right = generateExpression(expression.getRight());
         
-        // Determine the type of the result
-        String resultType = "int"; // Default to int
+        // Get operand types for proper result type determination
+        String leftType = getType(left);
+        String rightType = getType(right);
+        System.out.println("          [BINARY] Operand types - left: " + leftType + ", right: " + rightType);
         
-        if (operator.equals("+") || operator.equals("-") || 
-            operator.equals("*") || operator.equals("/")) {
-            // If either operand is float, result is float
-            if (getType(left).equals("float") || getType(right).equals("float")) {
-                resultType = "float";
-            }
-        } else if (operator.equals("==") || operator.equals("!=") || 
-                  operator.equals("<") || operator.equals(">") || 
-                  operator.equals("<=") || operator.equals(">=")) {
-            // Comparison operators always return int (boolean)
-            resultType = "int";
+        // Determine the type of the result
+        String resultType = determineResultType(operator, leftType, rightType);
+        System.out.println("          [BINARY] Result type determined as: " + resultType);
+        
+        // Generate type conversions if needed
+        if (!leftType.equals(resultType) && isArithmeticOperator(operator)) {
+            left = generateTypeConversion(left, leftType, resultType);
+            System.out.println("          [BINARY] Converted left operand to " + resultType + ": " + left);
+        }
+        if (!rightType.equals(resultType) && isArithmeticOperator(operator)) {
+            right = generateTypeConversion(right, rightType, resultType);
+            System.out.println("          [BINARY] Converted right operand to " + resultType + ": " + right);
         }
         
-        String result = currentFunction.generateTemp(resultType);
-        tempVarCounter++;
-        System.out.println("          [TEMP] Created temporary variable: " + result + " of type " + resultType);
+        String result = generateTempVar(resultType);
+        System.out.println("          [TEMP] Created temporary variable for sum/operation: " + result + " of type " + resultType);
         
         currentFunction.addInstruction(new BinaryOperation(result, left, operator, right));
-        System.out.println("          [INSTR] Added BINARY_OP: " + result + " = " + left + " " + operator + " " + right);
+        System.out.println("          [INSTR] Added BINARY_OP (SUM COMPUTATION): " + result + " = " + left + " " + operator + " " + right);
+        
+        // Special logging for sum operations
+        if (operator.equals("+")) {
+            System.out.println("          [SUM] *** SUM COMPUTATION GENERATED *** " + result + " = " + left + " + " + right);
+        }
         
         return result;
     }
@@ -295,10 +340,20 @@ public class IRGenerator {
         System.out.println("          [ASSIGN] Generating value expression");
         String value = generateExpression(assignment.getValue());
         
-        currentFunction.addInstruction(new Copy(variable, value));
-        System.out.println("          [INSTR] Added COPY: " + variable + " = " + value);
+        // Type checking and conversion
+        String varType = getType(variable);
+        String valueType = getType(value);
         
-        return variable;
+        if (!varType.equals(valueType) && !value.equals("void")) {
+            String convertedValue = generateTypeConversion(value, valueType, varType);
+            currentFunction.addInstruction(new Copy(variable, convertedValue));
+            System.out.println("          [INSTR] Added COPY with conversion: " + variable + " = " + convertedValue);
+            return variable;
+        } else {
+            currentFunction.addInstruction(new Copy(variable, value));
+            System.out.println("          [INSTR] Added COPY: " + variable + " = " + value);
+            return variable;
+        }
     }
     
     private String generateLiteral(Literal literal) {
@@ -315,8 +370,7 @@ public class IRGenerator {
             return stringId;
         } else {
             // For numeric literals, create a temporary variable
-            String temp = currentFunction.generateTemp(type);
-            tempVarCounter++;
+            String temp = generateTempVar(type);
             currentFunction.addInstruction(new Copy(temp, value.toString()));
             System.out.println("          [LITERAL] Created temporary for " + type + " literal: " + temp + " = " + value);
             return temp;
@@ -339,12 +393,12 @@ public class IRGenerator {
         }
         
         // Determine if the function has a return value
-        boolean hasReturnValue = !"void".equals(getFunctionReturnType(functionName));
+        String returnType = getFunctionReturnType(functionName);
+        boolean hasReturnValue = !"void".equals(returnType);
         String result = null;
         
         if (hasReturnValue) {
-            result = currentFunction.generateTemp(getFunctionReturnType(functionName));
-            tempVarCounter++;
+            result = generateTempVar(returnType);
             System.out.println("          [CALL] Function returns value, created temporary: " + result);
         } else {
             System.out.println("          [CALL] Function does not return a value (void)");
@@ -359,26 +413,52 @@ public class IRGenerator {
     }
     
     private String getType(String variable) {
-        // Check if it's a literal
+        // Check if it's a temporary variable
+        if (variable.startsWith("t") && variable.matches("t\\d+")) {
+            // Look up in function's temporary variable registry
+            if (currentFunction.getVariables().containsKey(variable)) {
+                return currentFunction.getVariables().get(variable);
+            }
+        }
+        
+        // Check if it's a string literal
         if (variable.startsWith("str")) {
             return "string";
-        } else if (variable.matches("-?\\d+")) {
+        } 
+        
+        // Check if it's a numeric literal
+        if (variable.matches("-?\\d+")) {
             return "int";
         } else if (variable.matches("-?\\d+\\.\\d+")) {
             return "float";
         }
         
-        // Check in function variables
+        // Check in local function variables
         if (currentFunction.getVariables().containsKey(variable)) {
             return currentFunction.getVariables().get(variable);
         }
         
-        return "unknown";
+        // Check in global symbol table
+        String funcVarKey = currentFunction.getName() + "_" + variable;
+        if (symbolTable.containsKey(funcVarKey)) {
+            return symbolTable.get(funcVarKey);
+        }
+        
+        System.out.println("          [WARNING] Unknown type for variable: " + variable + ", assuming int");
+        return "int"; // Default assumption
     }
     
     private String getFunctionReturnType(String functionName) {
-        // In a real compiler, this would look up the function's return type in a symbol table
-        // For now, we'll assume non-void and log this assumption
+        String key = "func_" + functionName;
+        if (symbolTable.containsKey(key)) {
+            return symbolTable.get(key);
+        }
+        
+        // Special handling for built-in functions
+        if (functionName.equals("printf") || functionName.equals("println")) {
+            return "void";
+        }
+        
         System.out.println("          [TYPE] Assuming return type 'int' for function: " + functionName);
         return "int";
     }
@@ -387,5 +467,64 @@ public class IRGenerator {
         String label = "L" + labelCounter++;
         System.out.println("          [LABEL] Generated new label: " + label);
         return label;
+    }
+    
+    private String generateTempVar(String type) {
+        String temp = currentFunction.generateTemp(type);
+        tempVarCounter++;
+        System.out.println("          [TEMP-VAR] Generated temporary variable: " + temp + " of type " + type);
+        return temp;
+    }
+    
+    private String determineResultType(String operator, String leftType, String rightType) {
+        if (operator.equals("+") || operator.equals("-") || 
+            operator.equals("*") || operator.equals("/")) {
+            // Arithmetic operators: if either operand is float, result is float
+            if (leftType.equals("float") || rightType.equals("float")) {
+                return "float";
+            }
+            return "int";
+        } else if (operator.equals("==") || operator.equals("!=") || 
+                  operator.equals("<") || operator.equals(">") || 
+                  operator.equals("<=") || operator.equals(">=")) {
+            // Comparison operators always return boolean (represented as int)
+            return "int";
+        } else if (operator.equals("&&") || operator.equals("||")) {
+            // Logical operators return boolean
+            return "int";
+        }
+        
+        return "int"; // Default
+    }
+    
+    private boolean isArithmeticOperator(String operator) {
+        return operator.equals("+") || operator.equals("-") || 
+               operator.equals("*") || operator.equals("/");
+    }
+    
+    private String generateTypeConversion(String variable, String fromType, String toType) {
+        if (fromType.equals(toType)) {
+            return variable; // No conversion needed
+        }
+        
+        String temp = generateTempVar(toType);
+        // Add a conversion instruction (this would be handled by the backend)
+        currentFunction.addInstruction(new Copy(temp, "convert(" + variable + ", " + toType + ")"));
+        System.out.println("          [CONVERT] Added type conversion: " + temp + " = convert(" + variable + ", " + toType + ")");
+        
+        return temp;
+    }
+    
+    private String getDefaultValue(String type) {
+        switch (type) {
+            case "int":
+                return "0";
+            case "float":
+                return "0.0";
+            case "string":
+                return "\"\"";
+            default:
+                return "0";
+        }
     }
 }
