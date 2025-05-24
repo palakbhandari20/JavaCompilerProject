@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java Compiler Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .lucide-icon {
+            width: 16px;
+            height: 16px;
+            stroke-width: 2;
+            stroke: currentColor;
+            fill: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Java Compiler Dashboard</h1>
+                    <p class="text-gray-600 mt-2">Compilation results for test.java</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button
+                        onclick="toggleSection('source')"
+                        class="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg font-medium hover:bg-blue-200 transition-colors"
+                    >
+                        📄 View Source Code
+                    </button>
+                    <span class="bg-green-100 text-green-800 px-4 py-2 rounded-full font-medium">
+                        ✓ Compilation Successful
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Source Code Section -->
+            <div id="source-section" class="mt-4" style="display: none;">
+                <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-blue-400">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">test.java</h3>
+                    <div class="bg-gray-900 text-green-400 p-4 rounded font-mono text-sm overflow-x-auto">
+                        <div class="text-gray-500">// Source Code</div>
+                        <div><span class="text-blue-400">public class</span> <span class="text-yellow-400">test</span> {</div>
+                        <div class="ml-4"><span class="text-blue-400">public static void</span> <span class="text-yellow-400">main</span>(<span class="text-blue-400">String</span>[] args) {</div>
+                        <div class="ml-8"><span class="text-blue-400">int</span> a = <span class="text-red-400">5</span>;</div>
+                        <div class="ml-8"><span class="text-blue-400">int</span> b = <span class="text-red-400">10</span>;</div>
+                        <div class="ml-8"><span class="text-blue-400">int</span> sum = a + b;</div>
+                        <div class="ml-4">}</div>
+                        <div>}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phase Navigation -->
+        <div class="bg-white rounded-lg shadow-lg p-4 mb-6">
+            <div class="flex flex-wrap gap-2" id="phase-nav">
+                <!-- Phase buttons will be generated here -->
+            </div>
+        </div>
+
+        <!-- Phase Content -->
+        <div class="bg-white rounded-lg shadow-lg p-6" id="phase-content">
+            <!-- Content will be dynamically loaded here -->
+        </div>
+
+        <!-- Git Status -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">Git Status</h3>
+            <div class="bg-gray-900 text-green-400 p-4 rounded font-mono text-sm">
+                <div>[main 7a66199] added Code Generator</div>
+                <div>2 files changed, 326 insertions(+), 366 deletions(-)</div>
+                <div class="mt-2 text-blue-400">✓ Successfully pushed to origin/main</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Application state
+        let state = {
+            activePhase: 'lexical',
+            expandedSections: {
+                source: false,
+                tokens: false,
+                parser: false,
+                semantic: false,
+                ir: false,
+                optimization: false,
+                codegen: false
+            }
+        };
+
+        // Data
+        const phases = [
+            { id: 'lexical', name: 'Lexical Analysis', icon: '📄', status: 'completed' },
+            { id: 'syntax', name: 'Syntax Analysis', icon: '🔧', status: 'completed' },
+            { id: 'semantic', name: 'Semantic Analysis', icon: '✓', status: 'completed' },
+            { id: 'ir', name: 'IR Generation', icon: '⚙️', status: 'completed' },
+            { id: 'optimization', name: 'Optimization', icon: '⚡', status: 'completed' },
+            { id: 'codegen', name: 'Code Generation', icon: '💻', status: 'completed' }
+        ];
+
+        const tokens = [
+            { type: 'PUBLIC', value: 'public' },
+            { type: 'CLASS', value: 'class' },
+            { type: 'IDENTIFIER', value: 'test' },
+            { type: 'LEFT_BRACE', value: '{' },
+            { type: 'PUBLIC', value: 'public' },
+            { type: 'STATIC', value: 'static' },
+            { type: 'VOID', value: 'void' },
+            { type: 'IDENTIFIER', value: 'main' },
+            { type: 'LEFT_PAREN', value: '(' },
+            { type: 'STRING', value: 'String' },
+            { type: 'LEFT_BRACKET', value: '[' },
+            { type: 'RIGHT_BRACKET', value: ']' },
+            { type: 'IDENTIFIER', value: 'args' },
+            { type: 'RIGHT_PAREN', value: ')' },
+            { type: 'LEFT_BRACE', value: '{' },
+            { type: 'INT', value: 'int' },
+            { type: 'IDENTIFIER', value: 'a' },
+            { type: 'ASSIGN', value: '=' },
+            { type: 'INTEGER_LITERAL', value: '5' },
+            { type: 'SEMICOLON', value: ';' },
+            { type: 'INT', value: 'int' },
+            { type: 'IDENTIFIER', value: 'b' },
+            { type: 'ASSIGN', value: '=' },
+            { type: 'INTEGER_LITERAL', value: '10' },
+            { type: 'SEMICOLON', value: ';' },
+            { type: 'INT', value: 'int' },
+            { type: 'IDENTIFIER', value: 'sum' },
+            { type: 'ASSIGN', value: '=' },
+            { type: 'IDENTIFIER', value: 'a' },
+            { type: 'PLUS', value: '+' },
+            { type: 'IDENTIFIER', value: 'b' },
+            { type: 'SEMICOLON', value: ';' },
+            { type: 'RIGHT_BRACE', value: '}' },
+            { type: 'RIGHT_BRACE', value: '}' },
+            { type: 'EOF', value: '' }
+        ];
+
+        const parserSteps = [
+            'BEGIN PARSING PROGRAM',
+            'Expecting class declaration',
+            'Found class: test',
+            'Parsing class members',
+            'BEGIN PARSING FUNCTION',
+            'Modifier: public',
+            'Modifier: static',
+            'Return type: void',
+            'Function name: main',
+            'Parsing parameters',
+            'Parameter: String[] args',
+            'Parsing function body',
+            'BEGIN PARSING BLOCK',
+            'Variable declaration: int a',
+            'Variable declaration: int b',
+            'Variable declaration: int sum',
+            'END PARSING BLOCK (3 statements)',
+            'END PARSING FUNCTION: main',
+            'COMPLETED PARSING PROGRAM'
+        ];
+
+        const semanticSteps = [
+            '[ANALYZER] Starting first pass: declaring functions...',
+            '[FUNCTION-DECLARE] Processing function: main',
+            '[OK] Declared function \'main\' with return type \'void\'',
+            '[ANALYZER] Starting second pass: analyzing function bodies...',
+            '[FUNCTION-ANALYZE] Analyzing function: main',
+            '[SCOPE] Entering function scope for \'main\'',
+            '[PARAMS] Processing parameters for function \'main\'',
+            '[OK] Declared parameter \'args\' with type \'String[]\'',
+            '[BODY] Analyzing body of function \'main\'',
+            '[VAR] Analyzing variable declaration \'a\' of type \'int\'',
+            '[OK] Declared variable \'a\' with type \'int\'',
+            '[VAR] Analyzing variable declaration \'b\' of type \'int\'',
+            '[OK] Declared variable \'b\' with type \'int\'',
+            '[VAR] Analyzing variable declaration \'sum\' of type \'int\'',
+            '[BINARY] Checking compatibility of types: left=\'int\', right=\'int\', operator=\'+\'',
+            '[OK] Binary expression is valid',
+            '[OK] Declared variable \'sum\' with type \'int\'',
+            '[ANALYZER] No semantic errors found.'
+        ];
+
+        const irInstructions = [
+            { type: 'COPY', instruction: 't0 = 5' },
+            { type: 'COPY', instruction: 'a = t0' },
+            { type: 'COPY', instruction: 't1 = 10' },
+            { type: 'COPY', instruction: 'b = t1' },
+            { type: 'BINARY_OP', instruction: 't2 = a + b' },
+            { type: 'COPY', instruction: 'sum = t2' }
+        ];
+
+        const optimizationData = {
+            before: ['t0 = 5', 'a = 5', 't1 = 10', 'b = 10', 't2 = 15', 'sum = 15'],
+            after: ['a = 5', 'b = 10', 'sum = 15']
+        };
+
+        // Functions
+        function setActivePhase(phaseId) {
+            state.activePhase = phaseId;
+            renderPhaseNav();
+            renderPhaseContent();
+        }
+
+        function toggleSection(section) {
+            state.expandedSections[section] = !state.expandedSections[section];
+            
+            if (section === 'source') {
+                const sourceSection = document.getElementById('source-section');
+                sourceSection.style.display = state.expandedSections[section] ? 'block' : 'none';
+            } else {
+                renderPhaseContent();
+            }
+        }
+
+        function renderPhaseNav() {
+            const nav = document.getElementById('phase-nav');
+            nav.innerHTML = phases.map(phase => `
+                <button 
+                    onclick="setActivePhase('${phase.id}')"
+                    class="flex items-center px-4 py-2 rounded-lg transition-colors ${
+                        state.activePhase === phase.id
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }"
+                >
+                    <span class="mr-2">${phase.icon}</span>
+                    ${phase.name}
+                    ${phase.status === 'completed' ? '<span class="ml-2 text-green-400">✓</span>' : ''}
+                </button>
+            `).join('');
+        }
+
+        function renderPhaseContent() {
+            const content = document.getElementById('phase-content');
+            
+            switch (state.activePhase) {
+                case 'lexical':
+                    content.innerHTML = `
+                        <div class="space-y-4">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-lg font-semibold text-gray-800">Token Analysis</h3>
+                                    <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                                        ${tokens.length} tokens
+                                    </span>
+                                </div>
+                                <button
+                                    onclick="toggleSection('tokens')"
+                                    class="flex items-center text-blue-600 hover:text-blue-800 mb-3"
+                                >
+                                    <span class="mr-1">${state.expandedSections.tokens ? '▼' : '▶'}</span>
+                                    View Tokens
+                                </button>
+                                ${state.expandedSections.tokens ? `
+                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-96 overflow-y-auto">
+                                        ${tokens.map(token => `
+                                            <div class="bg-white p-2 rounded border text-sm">
+                                                <span class="font-semibold text-blue-600">${token.type}</span>
+                                                ${token.value ? `<span class="text-gray-600 ml-2">→ ${token.value}</span>` : ''}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                    break;
+                
+                case 'syntax':
+                    content.innerHTML = `
+                        <div class="space-y-4">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-lg font-semibold text-gray-800">Parser Output</h3>
+                                    <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                                        Parsing Complete
+                                    </span>
+                                </div>
+                                <button
+                                    onclick="toggleSection('parser')"
+                                    class="flex items-center text-blue-600 hover:text-blue-800 mb-3"
+                                >
+                                    <span class="mr-1">${state.expandedSections.parser ? '▼' : '▶'}</span>
+                                    View Parse Steps
+                                </button>
+                                ${state.expandedSections.parser ? `
+                                    <div class="bg-white p-4 rounded border max-h-96 overflow-y-auto">
+                                        ${parserSteps.map(step => `
+                                            <div class="text-sm py-1 font-mono text-gray-700">${step}</div>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                                <div class="mt-4 bg-green-50 p-3 rounded border-l-4 border-green-400">
+                                    <h4 class="font-semibold text-green-800">Program Summary</h4>
+                                    <p class="text-green-700 text-sm mt-1">Class: test</p>
+                                    <p class="text-green-700 text-sm">Functions: 1</p>
+                                    <p class="text-green-700 text-sm ml-4">- public static void main(String[] args)</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+
+                case 'semantic':
+                    content.innerHTML = `
+                        <div class="space-y-4">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-lg font-semibold text-gray-800">Semantic Analysis</h3>
+                                    <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                                        No Errors
+                                    </span>
+                                </div>
+                                <button
+                                    onclick="toggleSection('semantic')"
+                                    class="flex items-center text-blue-600 hover:text-blue-800 mb-3"
+                                >
+                                    <span class="mr-1">${state.expandedSections.semantic ? '▼' : '▶'}</span>
+                                    View Analysis Steps
+                                </button>
+                                ${state.expandedSections.semantic ? `
+                                    <div class="bg-white p-4 rounded border max-h-96 overflow-y-auto">
+                                        ${semanticSteps.map(step => `
+                                            <div class="text-sm py-1 font-mono text-gray-700">${step}</div>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                    break;
+
+                case 'ir':
+                    content.innerHTML = `
+                        <div class="space-y-4">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-lg font-semibold text-gray-800">Intermediate Code</h3>
+                                    <span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+                                        ${irInstructions.length} instructions
+                                    </span>
+                                </div>
+                                <button
+                                    onclick="toggleSection('ir')"
+                                    class="flex items-center text-blue-600 hover:text-blue-800 mb-3"
+                                >
+                                    <span class="mr-1">${state.expandedSections.ir ? '▼' : '▶'}</span>
+                                    View IR Instructions
+                                </button>
+                                ${state.expandedSections.ir ? `
+                                    <div class="bg-white p-4 rounded border">
+                                        <h4 class="font-semibold mb-2">Function: main</h4>
+                                        ${irInstructions.map(instr => `
+                                            <div class="flex items-center py-1">
+                                                <span class="inline-block w-20 text-xs px-2 py-1 rounded mr-3 ${
+                                                    instr.type === 'COPY' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
+                                                }">
+                                                    ${instr.type}
+                                                </span>
+                                                <span class="font-mono text-sm">${instr.instruction}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                    break;
+
+                case 'optimization':
+                    content.innerHTML = `
+                        <div class="space-y-4">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-lg font-semibold text-gray-800">Code Optimization</h3>
+                                    <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
+                                        Dead Code Elimination
+                                    </span>
+                                </div>
+                                <button
+                                    onclick="toggleSection('optimization')"
+                                    class="flex items-center text-blue-600 hover:text-blue-800 mb-3"
+                                >
+                                    <span class="mr-1">${state.expandedSections.optimization ? '▼' : '▶'}</span>
+                                    View Optimization Details
+                                </button>
+                                ${state.expandedSections.optimization ? `
+                                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                        <div class="bg-red-50 p-4 rounded border">
+                                            <h4 class="font-semibold text-red-800 mb-2">Before Optimization</h4>
+                                            ${optimizationData.before.map(instr => `
+                                                <div class="font-mono text-sm py-1 text-red-700">${instr}</div>
+                                            `).join('')}
+                                        </div>
+                                        <div class="bg-green-50 p-4 rounded border">
+                                            <h4 class="font-semibold text-green-800 mb-2">After Optimization</h4>
+                                            ${optimizationData.after.map(instr => `
+                                                <div class="font-mono text-sm py-1 text-green-700">${instr}</div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                <div class="mt-4 bg-yellow-50 p-3 rounded border-l-4 border-yellow-400">
+                                    <p class="text-yellow-800 text-sm">
+                                        <strong>Optimization Applied:</strong> Dead Code Elimination removed ${optimizationData.before.length - optimizationData.after.length} redundant instructions
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+
+                case 'codegen':
+                    content.innerHTML = `
+                        <div class="space-y-4">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-lg font-semibold text-gray-800">Code Generation</h3>
+                                    <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                                        Success
+                                    </span>
+                                </div>
+                                <button
+                                    onclick="toggleSection('codegen')"
+                                    class="flex items-center text-blue-600 hover:text-blue-800 mb-3"
+                                >
+                                    <span class="mr-1">${state.expandedSections.codegen ? '▼' : '▶'}</span>
+                                    View Generated Assembly Code
+                                </button>
+                                ${state.expandedSections.codegen ? `
+                                    <div class="space-y-4">
+                                        <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-green-400">
+                                            <h4 class="font-semibold text-gray-800 mb-3">test.asm</h4>
+                                            <div class="bg-gray-900 text-green-400 p-4 rounded font-mono text-sm overflow-x-auto">
+                                                <div class="text-gray-500">; Compiler Generated Assembly</div>
+                                                <div class="text-gray-500">; Target: x86-64 Linux</div>
+                                                <div class="mt-2"></div>
+                                                <div><span class="text-blue-400">section</span> .text</div>
+                                                <div><span class="text-blue-400">global</span> _start</div>
+                                                <div class="mt-2"></div>
+                                                <div><span class="text-yellow-400">main:</span></div>
+                                                <div class="ml-4"><span class="text-purple-400">push</span> rbp</div>
+                                                <div class="ml-4"><span class="text-purple-400">mov</span> rbp, rsp</div>
+                                                <div class="ml-4"><span class="text-purple-400">sub</span> rsp, <span class="text-red-400">64</span></div>
+                                                <div class="ml-4"><span class="text-purple-400">mov</span> rax, <span class="text-red-400">5</span></div>
+                                                <div class="ml-4"><span class="text-purple-400">mov</span> [rbp<span class="text-red-400">-8</span>], rax</div>
+                                                <div class="ml-4"><span class="text-purple-400">mov</span> rax, <span class="text-red-400">10</span></div>
+                                                <div class="ml-4"><span class="text-purple-400">mov</span> [rbp<span class="text-red-400">-16</span>], rax</div>
+                                                <div class="ml-4"><span class="text-purple-400">mov</span> rax, <span class="text-red-400">15</span></div>
+                                                <div class="ml-4"><span class="text-purple-400">mov</span> [rbp<span class="text-red-400">-24</span>], rax</div>
+                                                <div><span class="text-yellow-400">.end_main:</span></div>
+                                                <div class="ml-4"><span class="text-purple-400">mov</span> rsp, rbp</div>
+                                                <div class="ml-4"><span class="text-purple-400">pop</span> rbp</div>
+                                                <div class="ml-4"><span class="text-purple-400">ret</span></div>
+                                                <div class="mt-2"></div>
+                                                <div><span class="text-yellow-400">_start:</span></div>
+                                                <div class="ml-4"><span class="text-gray-500">; Call main function</span></div>
+                                                <div class="ml-4"><span class="text-purple-400">call</span> main</div>
+                                                <div class="ml-4"><span class="text-gray-500">; Exit program</span></div>
+                                                <div class="ml-4"><span class="text-purple-400">mov</span> rdi, rax</div>
+                                                <div class="ml-4"><span class="text-purple-400">mov</span> rax, <span class="text-red-400">60</span></div>
+                                                <div class="ml-4"><span class="text-purple-400">syscall</span></div>
+                                            </div>
+                                        </div>
+                                        <div class="bg-blue-50 p-3 rounded border-l-4 border-blue-400">
+                                            <h4 class="font-semibold text-blue-800">Assembly Code Explanation</h4>
+                                            <ul class="text-blue-700 text-sm mt-2 space-y-1">
+                                                <li>• <strong>Stack Setup:</strong> Function prologue with rbp and rsp management</li>
+                                                <li>• <strong>Variable Storage:</strong> Local variables stored at rbp-8, rbp-16, rbp-24</li>
+                                                <li>• <strong>Direct Assignment:</strong> Optimized to store computed result (15) directly</li>
+                                                <li>• <strong>System Call:</strong> Program exit via Linux syscall 60</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                <div class="mt-4 bg-green-50 p-3 rounded border-l-4 border-green-400">
+                                    <p class="text-green-800 text-sm">
+                                        <strong>Output:</strong> Compilation completed successfully. Generated files: test.asm, test.o, test (executable)
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+            }
+        }
+
+        // Initialize the dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            renderPhaseNav();
+            renderPhaseContent();
+        });
+    </script>
+</body>
+</html>
