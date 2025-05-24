@@ -29,13 +29,15 @@ public class Main {
             Lexer lexer = new Lexer(sourceCode);
 
             // Phase 2: Syntax Analysis
-            System.out.println("Phase 2: Syntax Analysis");
             List<Token> tokens = lexer.tokenize(); // assuming your Lexer has a method tokenize()
-
-            System.out.println("Tokens:");
+                        System.out.println("Tokens:");
             for (Token token : tokens) {
                 System.out.println(token.getType() + " -> " + token.getLexeme());
             }
+            System.out.println("Phase 2: Syntax Analysis");
+            
+
+
             System.out.println("Total tokens: " + tokens.size());
 
             Parser parser = new Parser(tokens);
