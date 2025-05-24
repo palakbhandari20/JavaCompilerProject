@@ -1,28 +1,20 @@
-; Compiler Generated Assembly
-; Target: x86-64 Linux
+; Generated Assembly Code
+.intel_syntax noprefix
+.text
 
-section .text
-global _start
-
+.globl main
 main:
     push rbp
     mov rbp, rsp
-    sub rsp, 64
+    sub rsp, 32
+    mov [rbp-40], rdi
     mov rax, 5
-    mov [rbp-8], rax
+    mov [rbp-4], rax
     mov rax, 10
-    mov [rbp-16], rax
+    mov [rbp-8], rax
     mov rax, 15
-    mov [rbp-24], rax
-.end_main:
+    mov [rbp-12], rax
     mov rsp, rbp
     pop rbp
     ret
 
-_start:
-    ; Call main function
-    call main
-    ; Exit program
-    mov rdi, rax
-    mov rax, 60
-    syscall

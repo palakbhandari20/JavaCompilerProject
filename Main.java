@@ -32,12 +32,11 @@ public class Main {
             System.out.println("Phase 2: Syntax Analysis");
             List<Token> tokens = lexer.tokenize(); // assuming your Lexer has a method tokenize()
 
-System.out.println("Tokens:");
-for (Token token : tokens) {
-    System.out.println(token.getType() + " -> " + token.getLexeme());
-}
-System.out.println("Total tokens: " + tokens.size());
-
+            System.out.println("Tokens:");
+            for (Token token : tokens) {
+                System.out.println(token.getType() + " -> " + token.getLexeme());
+            }
+            System.out.println("Total tokens: " + tokens.size());
 
             Parser parser = new Parser(tokens);
             AST.Program program = parser.parseProgram();
@@ -68,11 +67,12 @@ System.out.println("Total tokens: " + tokens.size());
             // Phase 6: Code Generation
             System.out.println("Phase 6: Code Generation");
             CodeGenerator codeGenerator = new CodeGenerator();
-            String assemblyCode = codeGenerator.generate(optimizedIR);
             
-            // Write assembly output to file
+            // Generate output file name
             String outputFile = args[0].substring(0, args[0].lastIndexOf('.')) + ".asm";
-            Files.write(Paths.get(outputFile), assemblyCode.getBytes());
+            
+            // Generate assembly code - the method writes directly to file and returns void
+            codeGenerator.generateCode(optimizedIR, outputFile);
             
             System.out.println("Compilation completed successfully. Output written to " + outputFile);
             
