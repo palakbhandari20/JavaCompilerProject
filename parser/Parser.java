@@ -16,7 +16,6 @@ public class Parser {
         this.tokens = tokens;
         this.current = 0;
         System.out.println("===== PARSER INITIALIZED =====");
-        System.out.println("Total tokens: " + tokens.size());
     }
 
     private String getIndent() {
