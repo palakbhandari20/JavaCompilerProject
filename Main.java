@@ -34,11 +34,8 @@ public class Main {
             for (Token token : tokens) {
                 System.out.println(token.getType() + " -> " + token.getLexeme());
             }
-            System.out.println("Phase 2: Syntax Analysis");
-            
-
-
             System.out.println("Total tokens: " + tokens.size());
+            System.out.println("Phase 2: Syntax Analysis");
 
             Parser parser = new Parser(tokens);
             AST.Program program = parser.parseProgram();
